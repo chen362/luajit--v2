@@ -54,17 +54,27 @@ function loadAndReplaceBytecode(chunkName) {
         console.log(`[+] 加载Hook字节码: ${hookFile}`);
         
         const file = new File(hookFile, "rb");
-        const content = file.read();
-        file.close();
         
-        if (content && content.length > 0) {
-            console.log(`[✅] Hook字节码加载成功 (${content.length} 字节)`);
-            return {
-                content: content,
-                size: content.length
-            };
+        // 获取文件大小
+        file.seek(0, 2); // SEEK_END
+        const fileSize = file.tell();
+        file.seek(0, 0); // SEEK_SET
+        
+        if (fileSize > 0) {
+            // 读取文件内容
+            const content = file.readBytes(fileSize);
+            file.close();
+            
+            if (content) {
+                console.log(`[✅] Hook字节码加载成功 (${fileSize} 字节)`);
+                return {
+                    content: content,
+                    size: fileSize
+                };
+            }
         }
         
+        file.close();
         console.log(`[-] Hook字节码为空: ${hookFile}`);
         return false;
     } catch (e) {
@@ -105,7 +115,11 @@ if (!module) {
                 if (replacement) {
                     // 替换缓冲区内容
                     const newBuffer = Memory.alloc(replacement.size);
-                    newBuffer.writeByteArray(replacement.content);
+                    
+                    // 将文件内容复制到新内存
+                    for (let i = 0; i < replacement.size; i++) {
+                        Memory.writeU8(newBuffer.add(i), replacement.content[i]);
+                    }
                     
                     // 修改参数
                     args[1] = newBuffer;
